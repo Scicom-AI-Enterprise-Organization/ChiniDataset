@@ -77,7 +77,7 @@ merge_index("./output")
 
 ## Benchmarks
 
-### General Benchmark (IMDB)
+### General Benchmark
 
 [IMDB](https://huggingface.co/datasets/stanfordnlp/imdb) test set (25,000 samples, text + label):
 
@@ -94,7 +94,7 @@ merge_index("./output")
 
 Reproduce: `python benchmarks/run.py` — see [benchmarks/results.md](/benchmarks/results.md) for details.
 
-### Uint32 numpy array tokens (Wikipedia)
+### Uint32 numpy array tokens
 
 [Wikipedia EN - train-00000-of-00041.parquet](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard tokenized with Qwen3 (156,289 articles, `uint32[]` arrays):
 
