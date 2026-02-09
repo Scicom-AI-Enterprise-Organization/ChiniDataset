@@ -94,7 +94,7 @@ merge_index("./output")
 
 Reproduce: `python benchmarks/run.py` — see [benchmarks/results.md](/benchmarks/results.md) for details.
 
-### Tokenized uint32 NumPy Arrays (Wikipedia)
+### Uint32 numpy array tokens (Wikipedia)
 
 [Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia) shard tokenized with Qwen3 (156,289 articles, `uint32[]` arrays):
 
