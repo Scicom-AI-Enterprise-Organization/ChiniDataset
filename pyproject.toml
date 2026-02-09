@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "chiniml"
+version = "0.1.0"
+description = "Parquet streaming dataset library for ML training"
+license = "Apache-2.0"
+requires-python = ">=3.9"
+authors = [{ name = "ChiniML Contributors" }]
+keywords = ["machine-learning", "streaming", "dataset", "parquet", "pytorch"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "numpy>=1.21.0",
+    "pyarrow>=14.0.0",
+    "torch>=2.0.0",
+]
+
+[project.optional-dependencies]
+fast = ["xxhash>=3.0.0"]
+hf = ["huggingface-hub>=0.20.0"]
+all = [
+    "xxhash>=3.0.0",
+    "huggingface-hub>=0.20.0",
+]
+dev = ["pytest>=7.0.0", "pytest-cov>=4.0.0"]
+
+[project.urls]
+Repository = "https://github.com/chiniml/chiniml"
+
+[tool.hatch.build.targets.wheel]
+packages = ["chiniml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
