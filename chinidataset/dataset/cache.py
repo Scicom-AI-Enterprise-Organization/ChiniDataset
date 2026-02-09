@@ -1,6 +1,3 @@
-# Copyright 2024 ChiniML Contributors
-# SPDX-License-Identifier: Apache-2.0
-
 """CacheManager: Shard downloading, caching, and LRU eviction.
 
 Simple single-process implementation using plain Python dicts. Fast, no
@@ -158,7 +155,7 @@ class CacheManager:
         except ImportError:
             raise ImportError(
                 'huggingface-hub is required for hf:// URLs. '
-                'Install with: pip install chiniml[hf]'
+                'Install with: pip install chinidataset[hf]'
             )
 
         path = remote_url[len('hf://'):]

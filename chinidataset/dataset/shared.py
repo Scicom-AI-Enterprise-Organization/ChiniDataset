@@ -1,6 +1,3 @@
-# Copyright 2024 ChiniML Contributors
-# SPDX-License-Identifier: Apache-2.0
-
 """Cross-process shared memory arrays using Python's multiprocessing.shared_memory.
 
 Adapted from: https://github.com/mosaicml/streaming/blob/main/streaming/base/shared/

@@ -1,7 +1,3 @@
-# Copyright 2022-2024 MosaicML Streaming authors
-# Copyright 2024 ChiniML Contributors
-# SPDX-License-Identifier: Apache-2.0
-
 """Hashing algorithms for file verification.
 
 Adapted from: https://github.com/mosaicml/streaming/blob/main/streaming/base/hashing.py

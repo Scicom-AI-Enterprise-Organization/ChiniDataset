@@ -1,8 +1,4 @@
-# Copyright 2022-2024 MosaicML Streaming authors
-# Copyright 2024 ChiniML Contributors
-# SPDX-License-Identifier: Apache-2.0
-
-"""Utility functions for ChiniML.
+"""Utility functions for ChiniDataset.
 
 Adapted from: https://github.com/mosaicml/streaming/blob/main/streaming/base/util.py
 """
@@ -108,8 +104,8 @@ def merge_index(
         Parallel conversion with merge::
 
             from multiprocessing import Pool
-            from chiniml import MDSWriter
-            from chiniml.util import merge_index
+            from chinidataset import MDSWriter
+            from chinidataset.util import merge_index
 
             def convert_partition(args):
                 partition_id, samples = args

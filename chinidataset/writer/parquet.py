@@ -1,6 +1,3 @@
-# Copyright 2024 ChiniML Contributors
-# SPDX-License-Identifier: Apache-2.0
-
 """ParquetWriter writes samples to .parquet files compatible with MosaicML streaming.
 
 This writer extends Writer directly (not JointWriter) because Parquet is a
@@ -15,8 +12,8 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from chiniml.hashing import get_hash
-from chiniml.writer.base import Writer
+from chinidataset.hashing import get_hash
+from chinidataset.writer.base import Writer
 
 __all__ = ['ParquetWriter']
 
@@ -61,7 +58,7 @@ class ParquetWriter(Writer):
             Defaults to ``False``.
 
     Example:
-        >>> from chiniml import ParquetWriter
+        >>> from chinidataset import ParquetWriter
         >>> columns = {'tokens': 'int64[]', 'label': 'int32'}
         >>> with ParquetWriter(out='./data', columns=columns) as writer:
         ...     writer.write({'tokens': [1, 2, 3, 4], 'label': 0})

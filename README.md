@@ -1,4 +1,4 @@
-# ChiniML
+# ChiniDataset
 
 Parquet-native streaming dataset library for ML training. Drop-in replacement for MosaicML's `LocalDataset`.
 
@@ -7,17 +7,17 @@ Write sharded Parquet datasets with `ParquetWriter`, read them with `StreamingDa
 ## Install
 
 ```bash
-uv pip install git+https://github.com/Scicom-AI-Enterprise-Organization/StreamingDataset.git
-uv pip install "chiniml[hf] @ git+https://github.com/Scicom-AI-Enterprise-Organization/StreamingDataset.git"  # + HuggingFace Hub streaming
+uv pip install git+https://github.com/Scicom-AI-Enterprise-Organization/ChiniDataset.git
+uv pip install "chinidataset[hf] @ git+https://github.com/Scicom-AI-Enterprise-Organization/ChiniDataset.git"  # + HuggingFace Hub streaming
 ```
 
 ## Write
 
 ```python
 from datasets import load_dataset
-from chiniml import ParquetWriter
+from chinidataset import ParquetWriter
 
-hf_ds = load_dataset("ag_news", split="test")
+hf_ds = load_dataset("stanfordnlp/imdb", split="test")
 
 col = {"text": "str", "label": "int32"}
 
@@ -29,7 +29,7 @@ with ParquetWriter(out="./data", columns=col) as w:
 ## Read
 
 ```python
-from chiniml import StreamingDataset
+from chinidataset import StreamingDataset
 from torch.utils.data import DataLoader
 
 ds = StreamingDataset(local="./data")
@@ -50,8 +50,8 @@ sample = ds[42]
 ## Parallel Write + Merge
 
 ```python
-from chiniml import ParquetWriter
-from chiniml.util import merge_index
+from chinidataset import ParquetWriter
+from chinidataset.util import merge_index
 
 for part_id, chunk in enumerate(chunks):
     with ParquetWriter(out=f"./output/{part_id:05d}", columns=columns) as w:
@@ -67,25 +67,33 @@ merge_index("./output")
 
 ## Benchmarks
 
-[AG News](https://huggingface.co/datasets/ag_news) test set (7,600 samples, text + label):
+[IMDB](https://huggingface.co/datasets/stanfordnlp/imdb) test set (25,000 samples, text + label):
 
-| Metric | MosaicML (MDS) | ChiniML (Parquet) | Speedup |
+| Metric | MosaicML (MDS) | ChiniDataset (Parquet) | Speedup |
 |---|---|---|:---:|
-| Write | 139,419/s | 132,685/s | 1.0x |
-| Parallel write + merge | 50,003/s | 87,673/s | **1.8x** |
-| Read (sequential) | 13,371/s | 297,698/s | **22x** |
-| Read (shuffled) | 14,010/s | 451,237/s | **32x** |
-| DataLoader (w=0) | 13,989/s | 266,998/s | **19x** |
-| DataLoader (w=2) | 577/s | 677/s | 1.2x |
-| DataLoader (w=4) | 320/s | 354/s | 1.1x |
-| Read (merged) | 14,067/s | 154,868/s | **11x** |
+| Write | 126,888/s | 139,425/s | 1.1x |
+| Parallel write + merge | 51,562/s | 108,138/s | **2.1x** |
+| Read (sequential) | 13,779/s | 439,258/s | **32x** |
+| Read (shuffled) | 12,298/s | 459,032/s | **37x** |
+| DataLoader (w=0) | 13,238/s | 363,728/s | **28x** |
+| DataLoader (w=2) | 1,801/s | 2,218/s | 1.2x |
+| DataLoader (w=4) | 1,067/s | 1,164/s | 1.1x |
+| Read (merged) | 13,662/s | 463,930/s | **34x** |
 
 > **Note:** Multi-worker DataLoader (w=2, w=4) is bottlenecked by process spawn + IPC overhead on this small dataset. Both libraries hit the same wall. Multi-worker only helps on large datasets where per-sample read cost exceeds the fork/pickle overhead.
+
+Reproduce with the scripts in [benchmarks/](/benchmarks/):
+
+```bash
+python benchmarks/run.py
+```
+
+See [benchmarks/results.md](/benchmarks/results.md) for full details.
 
 ## Package
 
 ```
-chiniml/
+chinidataset/
 ├── writer/parquet.py        ParquetWriter + write_batch()
 ├── dataset/streaming.py     StreamingDataset (IterableDataset + map-style)
 ├── dataset/reader.py        ParquetReader (numpy-backed, LRU cached)
@@ -97,6 +105,9 @@ chiniml/
 └── util.py                  merge_index, bytes_to_int
 ```
 
-## License
+## Links
 
-Apache-2.0. Adapted from [mosaicml/streaming](https://github.com/mosaicml/streaming).
+- [HuggingFace Hub](https://huggingface.co/)
+- [IMDB dataset](https://huggingface.co/datasets/stanfordnlp/imdb)
+- [mosaicml/streaming](https://github.com/mosaicml/streaming)
+
