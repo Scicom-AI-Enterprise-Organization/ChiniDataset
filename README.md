@@ -77,7 +77,7 @@ merge_index("./output")
 
 ## Benchmarks
 
-### General Benchmark
+### 1. Write & read Benchmark
 
 [IMDB](https://huggingface.co/datasets/stanfordnlp/imdb) test set (25,000 samples, text + label):
 
@@ -94,16 +94,16 @@ merge_index("./output")
 
 Reproduce: `python benchmarks/run.py` — see [benchmarks/results.md](/benchmarks/results.md) for details.
 
-### Uint32 numpy array tokens
+### 2. Uint32 numpy array tokens write & read benchmark
 
-[Wikipedia EN - train-00000-of-00041.parquet](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard tokenized with Qwen3 (156,289 articles, `uint32[]` arrays):
+[Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard (156,289 articles, simple word tokenizer O(1) dict lookup, `uint32[]` arrays):
 
 | Metric | MosaicML (rows/s) | ChiniDataset (rows/s) | Speedup |
 |---|---|---|:---:|
-| Tokenize + Write | 506 | 502 | 1.0x |
-| Read | 889 | 1,966 | **2.2x** |
+| Tokenize + Write | 9,070 | 8,367 | 0.9x |
+| Read | 927 | 4,034 | **4.4x** |
 
-Write speed is identical — bottlenecked by tokenization (~500 rows/s), not the writer. Read is where ChiniDataset pulls ahead: **2.2x faster**.
+Write speed is comparable. Read is where ChiniDataset pulls ahead: **4.4x faster**.
 
 Reproduce: [examples/uint32_numpy_array_comparison.ipynb](/examples/uint32_numpy_array_comparison.ipynb)
 
