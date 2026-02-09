@@ -7,8 +7,8 @@ Write sharded Parquet datasets with `ParquetWriter`, read them with `StreamingDa
 ## Install
 
 ```bash
-uv pip install git+https://github.com/ariff-a_scmaies/orionml.git
-uv pip install "chiniml[hf] @ git+https://github.com/ariff-a_scmaies/orionml.git"  # + HuggingFace Hub streaming
+uv pip install git+https://github.com/Scicom-AI-Enterprise-Organization/StreamingDataset.git
+uv pip install "chiniml[hf] @ git+https://github.com/Scicom-AI-Enterprise-Organization/StreamingDataset.git"  # + HuggingFace Hub streaming
 ```
 
 ## Write
