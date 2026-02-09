@@ -82,12 +82,6 @@ merge_index("./output")
 
 > **Note:** Multi-worker DataLoader (w=2, w=4) is bottlenecked by process spawn + IPC overhead on this small dataset. Both libraries hit the same wall. Multi-worker only helps on large datasets where per-sample read cost exceeds the fork/pickle overhead.
 
-Reproduce with:
-
-```bash
-python benchmarks/bench_agnews.py
-```
-
 ## Package
 
 ```
