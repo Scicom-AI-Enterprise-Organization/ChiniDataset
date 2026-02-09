@@ -96,7 +96,7 @@ Reproduce: `python benchmarks/run.py` — see [benchmarks/results.md](/benchmark
 
 ### Uint32 numpy array tokens (Wikipedia)
 
-[Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia) shard tokenized with Qwen3 (156,289 articles, `uint32[]` arrays):
+[Wikipedia EN - train-00000-of-00041.parquet](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard tokenized with Qwen3 (156,289 articles, `uint32[]` arrays):
 
 | Metric | MosaicML (rows/s) | ChiniDataset (rows/s) | Speedup |
 |---|---|---|:---:|
