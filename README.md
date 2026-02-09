@@ -18,8 +18,9 @@ from datasets import load_dataset
 from chiniml import ParquetWriter
 
 hf_ds = load_dataset("ag_news", split="test")
+col = {"text": "str", "label": "int32"}
 
-with ParquetWriter(out="./data", columns={"text": "str", "label": "int32"}) as w:
+with ParquetWriter(out="./data", columns=col) as w:
     for row in hf_ds:
         w.write(row)
 ```
