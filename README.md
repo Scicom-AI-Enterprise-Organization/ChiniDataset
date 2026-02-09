@@ -1,6 +1,6 @@
 # ChiniDataset
 
-Resumable streamable Parquet-native streaming dataset library for large scale training.
+Parquet-native streaming dataset library for ML training. Drop-in replacement for MosaicML's `LocalDataset`.
 
 Write sharded Parquet datasets with `ParquetWriter`, read them with `StreamingDataset`. Every shard is a standard `.parquet` file -- inspectable by pandas, Spark, DuckDB, anyone.
 
@@ -77,7 +77,7 @@ merge_index("./output")
 
 ## Benchmarks
 
-### Text Read/Write (IMDB)
+### General Benchmark (IMDB)
 
 [IMDB](https://huggingface.co/datasets/stanfordnlp/imdb) test set (25,000 samples, text + label):
 
@@ -104,8 +104,6 @@ Reproduce: `python benchmarks/run.py` — see [benchmarks/results.md](/benchmark
 | Read | 889 | 1,966 | **2.2x** |
 
 Write speed is identical — bottlenecked by tokenization (~500 rows/s), not the writer. Read is where ChiniDataset pulls ahead: **2.2x faster**.
-
-ChiniDataset supports `uint32[]` natively via Parquet — just declare it in the column schema. MosaicML requires a custom `UInt32(Encoding)` class to serialize/deserialize uint32 arrays.
 
 Reproduce: [examples/uint32_numpy_array_comparison.ipynb](/examples/uint32_numpy_array_comparison.ipynb)
 
