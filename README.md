@@ -77,6 +77,8 @@ merge_index("./output")
 
 ## Benchmarks
 
+### Text Read/Write (IMDB)
+
 [IMDB](https://huggingface.co/datasets/stanfordnlp/imdb) test set (25,000 samples, text + label):
 
 | Metric | MosaicML (samples/s) | ChiniDataset (samples/s) | Speedup |
@@ -90,13 +92,22 @@ merge_index("./output")
 | DataLoader (w=4) | 1,056 | 1,153 | 1.1x |
 | Read (merged) | 12,044 | 471,112 | **39x** |
 
-Reproduce with the scripts in [benchmarks/](/benchmarks/):
+Reproduce: `python benchmarks/run.py` — see [benchmarks/results.md](/benchmarks/results.md) for details.
 
-```bash
-python benchmarks/run.py
-```
+### Tokenized uint32 NumPy Arrays (Wikipedia)
 
-See [benchmarks/results.md](/benchmarks/results.md) for full details.
+[Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia) shard tokenized with Qwen3 (156,289 articles, `uint32[]` arrays):
+
+| Metric | MosaicML (rows/s) | ChiniDataset (rows/s) | Speedup |
+|---|---|---|:---:|
+| Tokenize + Write | 506 | 502 | 1.0x |
+| Read | 889 | 1,966 | **2.2x** |
+
+Write speed is identical — bottlenecked by tokenization (~500 rows/s), not the writer. Read is where ChiniDataset pulls ahead: **2.2x faster**.
+
+ChiniDataset supports `uint32[]` natively via Parquet — just declare it in the column schema. MosaicML requires a custom `UInt32(Encoding)` class to serialize/deserialize uint32 arrays.
+
+Reproduce: [examples/uint32_numpy_array_comparison.ipynb](/examples/uint32_numpy_array_comparison.ipynb)
 
 ## Package
 
