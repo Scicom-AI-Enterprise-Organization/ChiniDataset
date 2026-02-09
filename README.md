@@ -69,18 +69,16 @@ merge_index("./output")
 
 [IMDB](https://huggingface.co/datasets/stanfordnlp/imdb) test set (25,000 samples, text + label):
 
-| Metric | MosaicML (MDS) | ChiniDataset (Parquet) | Speedup |
+| Metric | MosaicML (samples/s) | ChiniDataset (samples/s) | Speedup |
 |---|---|---|:---:|
-| Write | 126,888/s | 139,425/s | 1.1x |
-| Parallel write + merge | 51,562/s | 108,138/s | **2.1x** |
-| Read (sequential) | 13,779/s | 439,258/s | **32x** |
-| Read (shuffled) | 12,298/s | 459,032/s | **37x** |
-| DataLoader (w=0) | 13,238/s | 363,728/s | **28x** |
-| DataLoader (w=2) | 1,801/s | 2,218/s | 1.2x |
-| DataLoader (w=4) | 1,067/s | 1,164/s | 1.1x |
-| Read (merged) | 13,662/s | 463,930/s | **34x** |
-
-> **Note:** Multi-worker DataLoader (w=2, w=4) is bottlenecked by process spawn + IPC overhead on this small dataset. Both libraries hit the same wall. Multi-worker only helps on large datasets where per-sample read cost exceeds the fork/pickle overhead.
+| Write | 126,888 | 139,425 | 1.1x |
+| Parallel write + merge | 51,562 | 108,138 | **2.1x** |
+| Read (sequential) | 13,779 | 439,258 | **32x** |
+| Read (shuffled) | 12,298 | 459,032 | **37x** |
+| DataLoader (w=0) | 13,238 | 363,728 | **28x** |
+| DataLoader (w=2) | 1,801 | 2,218 | 1.2x |
+| DataLoader (w=4) | 1,067 | 1,164 | 1.1x |
+| Read (merged) | 13,662 | 463,930 | **34x** |
 
 Reproduce with the scripts in [benchmarks/](/benchmarks/):
 
