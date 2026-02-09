@@ -1,6 +1,3 @@
-# Copyright 2024 ChiniML Contributors
-# SPDX-License-Identifier: Apache-2.0
-
 """StreamingDataset: A PyTorch IterableDataset for streaming Parquet shards.
 
 Adapted from: https://github.com/mosaicml/streaming/blob/main/streaming/base/dataset.py
@@ -17,12 +14,12 @@ from typing import Any, Iterator, Optional, Union
 import numpy as np
 from torch.utils.data import IterableDataset
 
-from chiniml.dataset.cache import CacheManager, ShardInfo
-from chiniml.dataset.partition import get_partition
-from chiniml.dataset.reader import ParquetReader
-from chiniml.dataset.shuffle import no_shuffle, shuffle_samples
-from chiniml.dataset.world import World
-from chiniml.util import bytes_to_int, get_index_basename
+from chinidataset.dataset.cache import CacheManager, ShardInfo
+from chinidataset.dataset.partition import get_partition
+from chinidataset.dataset.reader import ParquetReader
+from chinidataset.dataset.shuffle import no_shuffle, shuffle_samples
+from chinidataset.dataset.world import World
+from chinidataset.util import bytes_to_int, get_index_basename
 
 __all__ = ['StreamingDataset']
 
@@ -35,7 +32,7 @@ _TICK = 0.007
 class StreamingDataset(IterableDataset):
     """A streaming Parquet dataset for PyTorch training.
 
-    Reads sharded Parquet datasets created by ChiniML's ParquetWriter.
+    Reads sharded Parquet datasets created by ChiniDataset's ParquetWriter.
     Supports shuffling, multi-worker DataLoader, distributed training,
     shard caching, LRU eviction, and mid-epoch resumption.
 
@@ -67,7 +64,7 @@ class StreamingDataset(IterableDataset):
             Defaults to ``8``.
 
     Example:
-        >>> from chiniml import StreamingDataset
+        >>> from chinidataset import StreamingDataset
         >>> from torch.utils.data import DataLoader
         >>>
         >>> dataset = StreamingDataset(local="./data", shuffle=True, batch_size=32)
@@ -201,7 +198,7 @@ class StreamingDataset(IterableDataset):
         self.local.mkdir(parents=True, exist_ok=True)
 
         # Reuse CacheManager's download logic (handles hf://, s3://, etc.)
-        from chiniml.dataset.cache import CacheManager
+        from chinidataset.dataset.cache import CacheManager
         # Use a temporary CacheManager just for the download method
         dummy = CacheManager.__new__(CacheManager)
         dummy.remote = self.remote

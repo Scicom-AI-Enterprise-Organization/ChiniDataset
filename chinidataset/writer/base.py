@@ -1,7 +1,3 @@
-# Copyright 2022-2024 MosaicML Streaming authors
-# Copyright 2024 ChiniML Contributors
-# SPDX-License-Identifier: Apache-2.0
-
 """Base class for serializing samples into streaming dataset shards.
 
 Adapted from: https://github.com/mosaicml/streaming/blob/main/streaming/base/format/base/writer.py
@@ -16,8 +12,8 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Optional, Union
 
-from chiniml.hashing import get_hash, is_hash
-from chiniml.util import bytes_to_int, get_index_basename
+from chinidataset.hashing import get_hash, is_hash
+from chinidataset.util import bytes_to_int, get_index_basename
 
 __all__ = ['Writer']
 

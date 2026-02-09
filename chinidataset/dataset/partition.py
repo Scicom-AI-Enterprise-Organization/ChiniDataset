@@ -1,6 +1,3 @@
-# Copyright 2024 ChiniML Contributors
-# SPDX-License-Identifier: Apache-2.0
-
 """Partition sample IDs across distributed workers.
 
 Adapted from: https://github.com/mosaicml/streaming/blob/main/streaming/base/partition.py
@@ -9,7 +6,7 @@ Adapted from: https://github.com/mosaicml/streaming/blob/main/streaming/base/par
 import numpy as np
 from numpy.typing import NDArray
 
-from chiniml.dataset.world import World
+from chinidataset.dataset.world import World
 
 __all__ = ['get_partition']
 

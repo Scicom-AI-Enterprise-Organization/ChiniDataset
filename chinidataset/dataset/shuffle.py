@@ -1,6 +1,3 @@
-# Copyright 2024 ChiniML Contributors
-# SPDX-License-Identifier: Apache-2.0
-
 """Deterministic block-based shuffling for streaming datasets.
 
 Adapted from mosaicml-streaming's py1e shuffle algorithm:

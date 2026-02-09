@@ -1,6 +1,3 @@
-# Copyright 2024 ChiniML Contributors
-# SPDX-License-Identifier: Apache-2.0
-
 """ParquetReader: Read samples from Parquet shard files.
 
 Returns numpy arrays for numeric/array columns (fast IPC serialization)
