@@ -2,10 +2,27 @@
 
 import sys
 import time
+from multiprocessing import Pool
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from utils import BASE, NUM_PARTITIONS, human_bytes, dir_size, shard_count, clean_dir, load_imdb
+
+
+def _chinidataset_write_partition(args):
+    sub_dir, samples, columns = args
+    from chinidataset import ParquetWriter
+    with ParquetWriter(out=sub_dir, columns=columns) as w:
+        for sample in samples:
+            w.write(sample)
+
+
+def _mosaicml_write_partition(args):
+    sub_dir, samples, columns = args
+    from streaming import MDSWriter
+    with MDSWriter(out=sub_dir, columns=columns) as w:
+        for sample in samples:
+            w.write({"text": sample["text"], "label": sample["label"]})
 
 
 def bench_chinidataset_write(hf_ds):
@@ -33,18 +50,21 @@ def bench_chinidataset_write(hf_ds):
     clean_dir(pq_parallel_path)
     chunk_size = (N + NUM_PARTITIONS - 1) // NUM_PARTITIONS
 
-    t0 = time.perf_counter()
+    partition_args = []
     for part_id in range(NUM_PARTITIONS):
         start = part_id * chunk_size
         end = min(start + chunk_size, N)
-        sub_dir = pq_parallel_path / f"{part_id:05d}"
-        with ParquetWriter(out=str(sub_dir), columns=columns) as w:
-            for i in range(start, end):
-                w.write(hf_ds[i])
+        sub_dir = str(pq_parallel_path / f"{part_id:05d}")
+        samples = [hf_ds[i] for i in range(start, end)]
+        partition_args.append((sub_dir, samples, columns))
+
+    t0 = time.perf_counter()
+    with Pool(processes=NUM_PARTITIONS) as pool:
+        pool.map(_chinidataset_write_partition, partition_args)
     merge_index(str(pq_parallel_path))
     elapsed = time.perf_counter() - t0
     size = dir_size(pq_parallel_path)
-    print(f"  ChiniDataset parallel (4 parts) + merge: {elapsed:.3f}s | {N/elapsed:,.0f} samples/s | {human_bytes(size)}")
+    print(f"  ChiniDataset parallel (4 procs) + merge: {elapsed:.3f}s | {N/elapsed:,.0f} samples/s | {human_bytes(size)}")
     results["chinidataset_parallel"] = {"time": elapsed, "throughput": N / elapsed, "size": size}
 
     return results
@@ -75,18 +95,21 @@ def bench_mosaicml_write(hf_ds):
     clean_dir(mds_parallel_path)
     chunk_size = (N + NUM_PARTITIONS - 1) // NUM_PARTITIONS
 
-    t0 = time.perf_counter()
+    partition_args = []
     for part_id in range(NUM_PARTITIONS):
         start = part_id * chunk_size
         end = min(start + chunk_size, N)
-        sub_dir = mds_parallel_path / f"{part_id:05d}"
-        with MDSWriter(out=str(sub_dir), columns=columns) as w:
-            for i in range(start, end):
-                w.write({"text": hf_ds[i]["text"], "label": hf_ds[i]["label"]})
+        sub_dir = str(mds_parallel_path / f"{part_id:05d}")
+        samples = [hf_ds[i] for i in range(start, end)]
+        partition_args.append((sub_dir, samples, columns))
+
+    t0 = time.perf_counter()
+    with Pool(processes=NUM_PARTITIONS) as pool:
+        pool.map(_mosaicml_write_partition, partition_args)
     merge_index(str(mds_parallel_path))
     elapsed = time.perf_counter() - t0
     size = dir_size(mds_parallel_path)
-    print(f"  MosaicML parallel (4 parts) + merge: {elapsed:.3f}s | {N/elapsed:,.0f} samples/s | {human_bytes(size)}")
+    print(f"  MosaicML parallel (4 procs) + merge: {elapsed:.3f}s | {N/elapsed:,.0f} samples/s | {human_bytes(size)}")
     results["mosaicml_parallel"] = {"time": elapsed, "throughput": N / elapsed, "size": size}
 
     return results

@@ -49,14 +49,24 @@ sample = ds[42]
 
 ## Parallel Write + Merge
 
+Split your data into groups, write each group in a separate process, then merge the index files into one unified dataset.
+
 ```python
+from multiprocessing import Pool
 from chinidataset import ParquetWriter
 from chinidataset.util import merge_index
 
-for part_id, chunk in enumerate(chunks):
-    with ParquetWriter(out=f"./output/{part_id:05d}", columns=columns) as w:
-        for sample in chunk:
+col = {"text": "str", "label": "int32"}
+
+def convert_partition(args):
+    part_id, samples = args
+    sub_dir = f"./output/{part_id:05d}"
+    with ParquetWriter(out=sub_dir, columns=col) as w:
+        for sample in samples:
             w.write(sample)
+
+with Pool(processes=4) as pool:
+    pool.map(convert_partition, enumerate(chunks))
 
 merge_index("./output")
 ```
@@ -71,14 +81,14 @@ merge_index("./output")
 
 | Metric | MosaicML (samples/s) | ChiniDataset (samples/s) | Speedup |
 |---|---|---|:---:|
-| Write | 126,888 | 139,425 | 1.1x |
-| Parallel write + merge | 51,562 | 108,138 | **2.1x** |
-| Read (sequential) | 13,779 | 439,258 | **32x** |
-| Read (shuffled) | 12,298 | 459,032 | **37x** |
-| DataLoader (w=0) | 13,238 | 363,728 | **28x** |
-| DataLoader (w=2) | 1,801 | 2,218 | 1.2x |
-| DataLoader (w=4) | 1,067 | 1,164 | 1.1x |
-| Read (merged) | 13,662 | 463,930 | **34x** |
+| Write | 126,306 | 128,645 | 1.0x |
+| Parallel write + merge | 11,598 | 20,010 | **1.7x** |
+| Read (sequential) | 13,011 | 280,706 | **22x** |
+| Read (shuffled) | 13,606 | 434,398 | **32x** |
+| DataLoader (w=0) | 11,239 | 197,322 | **18x** |
+| DataLoader (w=2) | 1,803 | 2,148 | 1.2x |
+| DataLoader (w=4) | 1,056 | 1,153 | 1.1x |
+| Read (merged) | 12,044 | 471,112 | **39x** |
 
 Reproduce with the scripts in [benchmarks/](/benchmarks/):
 
