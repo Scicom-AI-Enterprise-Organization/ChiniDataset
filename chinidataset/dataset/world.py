@@ -1,6 +1,3 @@
-# Copyright 2024 ChiniML Contributors
-# SPDX-License-Identifier: Apache-2.0
-
 """Detect distributed training topology from environment variables.
 
 Adapted from: https://github.com/mosaicml/streaming/blob/main/streaming/base/world.py
