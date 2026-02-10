@@ -87,8 +87,6 @@ Under the hood: partitions dataset → spawns N processes → each writes to `ou
 | Metric | MosaicML (MDS) | ChiniDataset (PQ) | Speedup |
 |---|---|---|:---:|
 | Write | 12,188/s | 12,353/s | 1.0x |
-| File size | 425.7 MB | 425.3 MB | — |
-| Shards | 7 | 7 | — |
 | Read | 7,774/s | 9,309/s | **1.2x** |
 | Read (shuffled) | 8,876/s | 6,962/s | 0.8x |
 
