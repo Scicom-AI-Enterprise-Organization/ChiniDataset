@@ -110,6 +110,8 @@ class ParquetReader:
             Dict[str, Any]: Sample dictionary.
         """
         self._load()
+        if idx < 0:
+            idx += self._num_rows
         if idx < 0 or idx >= self._num_rows:
             raise IndexError(f'Index {idx} out of range for shard with {self._num_rows} rows')
 

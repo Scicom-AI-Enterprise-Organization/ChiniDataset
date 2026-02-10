@@ -258,14 +258,21 @@ class StreamingDataset(IterableDataset):
     def __getitem__(self, sample_id: int) -> dict[str, Any]:
         """Get a sample by global index.
 
-        Downloads the shard if not present locally.
+        Downloads the shard if not present locally. Supports negative indexing
+        (e.g., ``ds[-1]`` returns the last sample).
 
         Args:
-            sample_id (int): Global sample index.
+            sample_id (int): Global sample index (negative values count from the end).
 
         Returns:
             Dict[str, Any]: Sample dictionary.
         """
+        if sample_id < 0:
+            sample_id += self.num_samples
+        if sample_id < 0 or sample_id >= self.num_samples:
+            raise IndexError(
+                f'Index {sample_id} out of range for dataset with {self.num_samples} samples'
+            )
         shard_id, local_id = self._sample_to_shard(sample_id)
         self._cache.touch(shard_id)
         reader = self._get_reader(shard_id)
