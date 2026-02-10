@@ -1,4 +1,4 @@
-"""Read benchmark: ChiniDataset vs MosaicML."""
+"""Read benchmark: ChiniDataset vs MosaicML — sequential and shuffled."""
 
 import sys
 import time
@@ -13,28 +13,20 @@ def bench_chinidataset_read():
 
     results = {}
     pq_path = BASE / "chinidataset_data"
-    pq_parallel_path = BASE / "chinidataset_parallel"
 
     ds = StreamingDataset(local=str(pq_path))
     t0 = time.perf_counter()
     count = sum(1 for _ in ds)
     elapsed = time.perf_counter() - t0
-    print(f"  ChiniDataset sequential: {count:,} samples | {count/elapsed:,.0f} samples/s")
+    print(f"  ChiniDataset read: {count:,} samples | {count/elapsed:,.0f} samples/s")
     results["chinidataset_read"] = {"time": elapsed, "throughput": count / elapsed}
 
     ds_shuf = StreamingDataset(local=str(pq_path), shuffle=True)
     t0 = time.perf_counter()
     count = sum(1 for _ in ds_shuf)
     elapsed = time.perf_counter() - t0
-    print(f"  ChiniDataset shuffled: {count:,} samples | {count/elapsed:,.0f} samples/s")
+    print(f"  ChiniDataset read (shuffled): {count:,} samples | {count/elapsed:,.0f} samples/s")
     results["chinidataset_shuffle"] = {"time": elapsed, "throughput": count / elapsed}
-
-    ds_merged = StreamingDataset(local=str(pq_parallel_path))
-    t0 = time.perf_counter()
-    count = sum(1 for _ in ds_merged)
-    elapsed = time.perf_counter() - t0
-    print(f"  ChiniDataset merged: {count:,} samples | {count/elapsed:,.0f} samples/s")
-    results["chinidataset_merge_read"] = {"time": elapsed, "throughput": count / elapsed}
 
     return results
 
@@ -44,28 +36,20 @@ def bench_mosaicml_read():
 
     results = {}
     mds_path = BASE / "mosaicml_data"
-    mds_parallel_path = BASE / "mosaicml_parallel"
 
     ds = MosaicDS(local=str(mds_path), shuffle=False, batch_size=32)
     t0 = time.perf_counter()
     count = sum(1 for _ in ds)
     elapsed = time.perf_counter() - t0
-    print(f"  MosaicML sequential: {count:,} samples | {count/elapsed:,.0f} samples/s")
+    print(f"  MosaicML read: {count:,} samples | {count/elapsed:,.0f} samples/s")
     results["mosaicml_read"] = {"time": elapsed, "throughput": count / elapsed}
 
     ds_shuf = MosaicDS(local=str(mds_path), shuffle=True, batch_size=32, num_canonical_nodes=1)
     t0 = time.perf_counter()
     count = sum(1 for _ in ds_shuf)
     elapsed = time.perf_counter() - t0
-    print(f"  MosaicML shuffled: {count:,} samples | {count/elapsed:,.0f} samples/s")
+    print(f"  MosaicML read (shuffled): {count:,} samples | {count/elapsed:,.0f} samples/s")
     results["mosaicml_shuffle"] = {"time": elapsed, "throughput": count / elapsed}
-
-    ds_merged = MosaicDS(local=str(mds_parallel_path), shuffle=False, batch_size=32)
-    t0 = time.perf_counter()
-    count = sum(1 for _ in ds_merged)
-    elapsed = time.perf_counter() - t0
-    print(f"  MosaicML merged: {count:,} samples | {count/elapsed:,.0f} samples/s")
-    results["mosaicml_merge_read"] = {"time": elapsed, "throughput": count / elapsed}
 
     return results
 

@@ -19,7 +19,7 @@ def bench_chinidataset_dataloader():
         ds = StreamingDataset(local=str(pq_path))
         loader = DataLoader(ds, batch_size=32, num_workers=nw)
         t0 = time.perf_counter()
-        count = sum(len(b["label"]) for b in loader)
+        count = sum(len(b["input_ids"]) for b in loader)
         elapsed = time.perf_counter() - t0
         print(f"  ChiniDataset DataLoader (w={nw}): {count:,} samples | {count/elapsed:,.0f} samples/s")
         results[f"chinidataset_dl_w{nw}"] = {"time": elapsed, "throughput": count / elapsed}
@@ -37,7 +37,7 @@ def bench_mosaicml_dataloader():
         ds = MosaicDS(local=str(mds_path), shuffle=False, batch_size=32)
         loader = DataLoader(ds, batch_size=32, num_workers=nw)
         t0 = time.perf_counter()
-        count = sum(len(b["label"]) for b in loader)
+        count = sum(len(b["input_ids"]) for b in loader)
         elapsed = time.perf_counter() - t0
         print(f"  MosaicML DataLoader (w={nw}): {count:,} samples | {count/elapsed:,.0f} samples/s")
         results[f"mosaicml_dl_w{nw}"] = {"time": elapsed, "throughput": count / elapsed}

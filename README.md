@@ -47,71 +47,94 @@ ds = StreamingDataset(local="/tmp/cache", remote="hf://user/dataset")
 sample = ds[42]
 ```
 
-## Parallel Write + Merge
+## Parallel Write (`write_mp`)
 
-Split your data into groups, write each group in a separate process, then merge the index files into one unified dataset.
+`write_mp` parallelises the **entire pipeline**: it partitions the dataset across N workers, each worker iterates + transforms + writes its own chunk, then merges the index files automatically.
 
 ```python
-from multiprocessing import Pool
 from chinidataset import ParquetWriter
-from chinidataset.util import merge_index
 
-col = {"text": "str", "label": "int32"}
+columns = {"input_ids": "uint32[]"}
 
-def convert_partition(args):
-    part_id, samples = args
-    sub_dir = f"./output/{part_id:05d}"
-    with ParquetWriter(out=sub_dir, columns=col) as w:
-        for sample in samples:
-            w.write(sample)
+def tokenize_row(row):
+    return {"input_ids": tokenize(row["text"])}
 
-with Pool(processes=4) as pool:
-    pool.map(convert_partition, enumerate(chunks))
-
-merge_index("./output")
+with ParquetWriter(out="./output", columns=columns) as writer:
+    writer.write_mp(hf_ds, num_workers=4, transform=tokenize_row)
 ```
+
+`transform` is optional — skip it if your data is already in the right shape:
+
+```python
+with ParquetWriter(out="./output", columns=columns) as writer:
+    writer.write_mp(hf_ds, num_workers=4)
+```
+
+Under the hood: partitions dataset → spawns N processes → each writes to `output/{part_id}/` → `merge_index` combines into one `index.json`.
 
 ## Examples
 
-[Examples](/examples/) through here.
+- [1_example_chinidataset.ipynb](/examples/1_example_chinidataset.ipynb) — Write + Read + DataLoader
+- [2_example_uint32_numpy_array_write.ipynb](/examples/2_example_uint32_numpy_array_write.ipynb) — Tokenized uint32 arrays
+- [3_example_write_mp.ipynb](/examples/3_example_write_mp.ipynb) — Parallel write with `write_mp`
 
 ## Benchmarks
 
-### 1. Write & read Benchmark
+### 1. General benchmark (write, read, read shuffled)
 
-[IMDB](https://huggingface.co/datasets/stanfordnlp/imdb) test set (25,000 samples, text + label):
+[Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia) shard 0 (156,289 articles, word tokenizer, `input_ids` uint32[]):
 
-| Metric | MosaicML (samples/s) | ChiniDataset (samples/s) | Speedup |
+| Metric | MosaicML (MDS) | ChiniDataset (PQ) | Speedup |
 |---|---|---|:---:|
-| Write | 126,306 | 128,645 | 1.0x |
-| Parallel write + merge | 11,598 | 20,010 | **1.7x** |
-| Read (sequential) | 13,011 | 280,706 | **22x** |
-| Read (shuffled) | 13,606 | 434,398 | **32x** |
-| DataLoader (w=0) | 11,239 | 197,322 | **18x** |
-| DataLoader (w=2) | 1,803 | 2,148 | 1.2x |
-| DataLoader (w=4) | 1,056 | 1,153 | 1.1x |
-| Read (merged) | 12,044 | 471,112 | **39x** |
+| Write | 12,188/s | 12,353/s | 1.0x |
+| File size | 425.7 MB | 425.3 MB | — |
+| Shards | 7 | 7 | — |
+| Read | 7,774/s | 9,309/s | **1.2x** |
+| Read (shuffled) | 8,876/s | 6,962/s | 0.8x |
 
-Reproduce: `python benchmarks/run.py` — see [benchmarks/results.md](/benchmarks/results.md) for details.
+Run: [benchmarks/run.py](/benchmarks/run.py)
+
+```bash
+uv run python benchmarks/run.py
+```
 
 ### 2. Uint32 numpy array tokens write & read benchmark
 
-[Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard (156,289 articles, simple word tokenizer O(1) dict lookup, `uint32[]` arrays):
+[Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard (156,289 articles, word tokenizer O(1) dict lookup, `uint32[]` arrays):
 
-| Metric | MosaicML (rows/s) | ChiniDataset (rows/s) | Speedup |
+| Metric | MosaicML | ChiniDataset | Speedup |
 |---|---|---|:---:|
-| Tokenize + Write | 9,070 | 8,367 | 0.9x |
-| Read | 927 | 4,034 | **4.4x** |
+| Tokenize + Write | 14.13s (11,061 rows/s) | 15.72s (9,939 rows/s) | 0.9x |
+| Read | 168.23s (929 rows/s) | 29.21s (5,350 rows/s) | **5.8x** |
 
-Write speed is comparable. Read is where ChiniDataset pulls ahead: **4.4x faster**.
+Run: [benchmarks/bench_uint32.py](/benchmarks/bench_uint32.py)
 
-Reproduce: [examples/uint32_numpy_array_comparison.ipynb](/examples/uint32_numpy_array_comparison.ipynb)
+```bash
+uv run python benchmarks/bench_uint32.py
+```
+
+### 3. `write_mp` parallel write benchmark
+
+[Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard (156,289 articles, word-level tokenizer, `uint32[]` arrays):
+
+| Method | Time (s) | Samples/s | Speedup |
+|---|---|---|:---:|
+| MosaicML MDSWriter (sequential) | 16.03s | 9,752 | 1.0x |
+| MosaicML MDSWriter (parallel 4w) | 7.79s | 20,068 | 2.06x |
+| ChiniDataset ParquetWriter (sequential) | 12.82s | 12,188 | 1.25x |
+| ChiniDataset write_mp (parallel 4w) | **6.24s** | **25,050** | **2.57x** |
+
+Run: [benchmarks/bench_write_mp.py](/benchmarks/bench_write_mp.py)
+
+```bash
+uv run python benchmarks/bench_write_mp.py
+```
 
 ## Package
 
 ```
 chinidataset/
-├── writer/parquet.py        ParquetWriter + write_batch()
+├── writer/parquet.py        ParquetWriter + write_mp() + write_batch()
 ├── dataset/streaming.py     StreamingDataset (IterableDataset + map-style)
 ├── dataset/reader.py        ParquetReader (numpy-backed, LRU cached)
 ├── dataset/cache.py         CacheManager (S3/HF download + LRU eviction)
@@ -124,7 +147,5 @@ chinidataset/
 
 ## Links
 
-- [HuggingFace Hub](https://huggingface.co/)
-- [IMDB dataset](https://huggingface.co/datasets/stanfordnlp/imdb)
 - [mosaicml/streaming](https://github.com/mosaicml/streaming)
 

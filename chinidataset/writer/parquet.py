@@ -5,21 +5,46 @@ columnar format that requires batch conversion -- samples cannot be individually
 encoded to bytes like MDS/JSON/CSV.
 """
 
+import logging
+from multiprocessing import Pool
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
 from chinidataset.hashing import get_hash
+from chinidataset.util import merge_index
 from chinidataset.writer.base import Writer
 
 __all__ = ['ParquetWriter']
 
+logger = logging.getLogger(__name__)
+
 # Default Parquet settings
 DEFAULT_ROW_GROUP_SIZE = 10000
 DEFAULT_DATA_PAGE_SIZE = 1024 * 1024  # 1MB
+
+
+def _write_partition_worker(args: tuple) -> None:
+    """Worker function for parallel ``write_dataset``. Runs in a subprocess.
+
+    Each worker creates its own ``ParquetWriter`` for an isolated subdirectory,
+    iterates over its partition of the dataset, applies the optional transform,
+    and writes samples. The writer's context manager ensures ``finish()`` is
+    called to flush remaining samples and write the partition's ``index.json``.
+
+    Args:
+        args: Tuple of (sub_dir, dataset, start, end, columns, writer_kwargs, transform).
+    """
+    sub_dir, dataset, start, end, columns, writer_kwargs, transform = args
+    with ParquetWriter(out=sub_dir, columns=columns, **writer_kwargs) as w:
+        for i in range(start, end):
+            sample = dataset[i]
+            if transform is not None:
+                sample = transform(sample)
+            w.write(sample)
 
 
 class ParquetWriter(Writer):
@@ -503,6 +528,132 @@ class ParquetWriter(Writer):
             return pa.array(col_data, type=arrow_type)
 
         return pa.array(col_data, type=arrow_type)
+
+    def _get_writer_kwargs(self) -> dict[str, Any]:
+        """Extract writer config kwargs to forward to sub-writers in parallel mode.
+
+        Returns a dict of keyword arguments that can be passed to a new
+        ``ParquetWriter(columns=..., out=..., **kwargs)`` to replicate this
+        writer's configuration (compression, hashes, size_limit, etc.).
+        """
+        return {
+            'compression': self.parquet_compression,
+            'compression_level': self.compression_level,
+            'hashes': self.hashes or None,
+            'size_limit': self.size_limit,
+            'row_group_size': self.row_group_size,
+            'exist_ok': True,  # sub-dirs are freshly created, but be safe
+        }
+
+    def write_mp(
+        self,
+        dataset: Any,
+        *,
+        num_workers: int = 4,
+        transform: Optional[Callable[[dict[str, Any]], dict[str, Any]]] = None,
+    ) -> None:
+        """Write an entire dataset in parallel using multiprocessing.
+
+        The dataset is partitioned into ``num_workers`` chunks. Each chunk is
+        processed in a separate subprocess that runs its own iteration loop,
+        applies the optional ``transform``, and writes to an isolated
+        subdirectory via its own ``ParquetWriter``. After all workers finish,
+        ``merge_index`` combines the per-partition ``index.json`` files into a
+        single unified index at the root output directory.
+
+        This parallelises **all three stages** — iteration, transformation, and
+        writing — which is the key advantage over putting multiprocessing only
+        inside ``write()``.
+
+        For single-process writing, use the normal ``write()`` loop instead::
+
+            for row in dataset:
+                writer.write(row)
+
+        Args:
+            dataset: An indexable dataset that supports ``len(dataset)`` and
+                ``dataset[i]``. HuggingFace datasets, Python lists, and any
+                object implementing ``__len__`` + ``__getitem__`` work.
+                Generators and plain iterables are **not** supported — convert
+                them to a list first.
+            num_workers (int): Number of parallel worker processes.
+                Defaults to ``4``.
+            transform (callable, optional): A function applied to each sample dict
+                before writing. Signature: ``(sample: dict) -> dict``.
+                Must be a picklable function (top-level or named function,
+                **not** a lambda), because it is sent to worker processes
+                via ``multiprocessing``.
+
+        Raises:
+            TypeError: If ``dataset`` does not support ``len()`` and ``__getitem__``.
+            TypeError: If ``transform`` is not callable.
+            ValueError: If ``num_workers`` is less than 1.
+
+        Example:
+            Parallel write with 4 workers::
+
+                with ParquetWriter(out="./output", columns=columns) as writer:
+                    writer.write_mp(hf_ds, num_workers=4)
+
+            With a transform function::
+
+                def tokenize(row):
+                    ids = tokenizer(row["text"])["input_ids"]
+                    return {"input_ids": np.array(ids, dtype=np.uint32)}
+
+                with ParquetWriter(out="./output", columns=columns) as writer:
+                    writer.write_mp(hf_ds, num_workers=4, transform=tokenize)
+        """
+        # --- Input validation ---
+        if not hasattr(dataset, '__len__') or not hasattr(dataset, '__getitem__'):
+            raise TypeError(
+                'dataset must be indexable (support __len__ and __getitem__). '
+                'HuggingFace datasets and lists work. If you have a generator, '
+                'convert it to a list first.'
+            )
+        if transform is not None and not callable(transform):
+            raise TypeError('transform must be a callable, got '
+                            f'{type(transform).__name__}.')
+        if num_workers < 1:
+            raise ValueError(f'num_workers must be >= 1, got {num_workers}.')
+
+        N = len(dataset)
+        if N == 0:
+            return
+
+        # --- Parallel path ---
+        chunk_size = (N + num_workers - 1) // num_workers
+        writer_kwargs = self._get_writer_kwargs()
+
+        partition_args = []
+        for part_id in range(num_workers):
+            start = part_id * chunk_size
+            end = min(start + chunk_size, N)
+            if start >= N:
+                break  # fewer samples than workers
+            sub_dir = str(self.local / f'{part_id:05d}')
+            partition_args.append(
+                (sub_dir, dataset, start, end, self.columns, writer_kwargs, transform)
+            )
+
+        actual_workers = len(partition_args)
+        logger.info(
+            f'write_mp: {N} samples across {actual_workers} workers'
+        )
+
+        with Pool(processes=actual_workers) as pool:
+            pool.map(_write_partition_worker, partition_args)
+
+        # Merge per-partition index.json files into a single root index.json
+        merge_index(str(self.local))
+
+        # Signal that the index has been written so finish() doesn't overwrite it
+        self._index_written = True
+
+        logger.info(
+            f'write_mp: done. Merged {actual_workers} partitions into '
+            f'{self.local / "index.json"}'
+        )
 
     def _reset_cache(self) -> None:
         """Reset our internal shard-building cache."""

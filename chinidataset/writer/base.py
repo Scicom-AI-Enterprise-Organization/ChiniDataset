@@ -75,6 +75,7 @@ class Writer(ABC):
         self.new_shard_size: int
 
         self.shards: list[dict[str, Any]] = []
+        self._index_written = False
 
         # Setup local directory
         self.local = Path(out).expanduser().resolve()
@@ -141,7 +142,8 @@ class Writer(ABC):
         if self.new_samples:
             self.flush_shard()
             self._reset_cache()
-        self._write_index()
+        if not self._index_written:
+            self._write_index()
 
     def __enter__(self) -> 'Writer':
         return self
