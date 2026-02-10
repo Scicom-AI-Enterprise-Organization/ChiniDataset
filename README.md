@@ -1,6 +1,6 @@
 # ChiniDataset
 
-Resumable streamable Parquet-native streaming dataset library for large scale training.
+Resumable streamable Parquet-native streaming dataset library for large scale training. Why Chini? Idk probably Chini Lake.
 
 Write sharded Parquet datasets with `ParquetWriter`, read them with `StreamingDataset`. Every shard is a standard `.parquet` file -- inspectable by pandas, Spark, DuckDB, anyone.
 
