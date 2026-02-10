@@ -1,6 +1,6 @@
 # ChiniDataset
 
-Parquet-native streaming dataset library for ML training. Drop-in replacement for MosaicML's `LocalDataset`.
+Resumable streamable Parquet-native streaming dataset library for large scale training.
 
 Write sharded Parquet datasets with `ParquetWriter`, read them with `StreamingDataset`. Every shard is a standard `.parquet` file -- inspectable by pandas, Spark, DuckDB, anyone.
 
