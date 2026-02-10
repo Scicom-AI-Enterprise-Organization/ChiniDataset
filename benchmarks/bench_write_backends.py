@@ -94,14 +94,14 @@ def bench_pandas_pyarrow(ds):
         buf_bytes += ids.nbytes * 2
         if buf_bytes >= (1 << 26):  # 64MB
             pdf = pd.DataFrame(buf)
-            pdf.to_parquet(p / f"shard.{shard_idx:05}.parquet", engine="pyarrow", index=False)
+            pdf.to_parquet(p / f"shard.{shard_idx:05}.parquet", engine="pyarrow", compression=None, index=False)
             shard_idx += 1
             buf.clear()
             buf_bytes = 0
 
     if buf:
         pdf = pd.DataFrame(buf)
-        pdf.to_parquet(p / f"shard.{shard_idx:05}.parquet", engine="pyarrow", index=False)
+        pdf.to_parquet(p / f"shard.{shard_idx:05}.parquet", engine="pyarrow", compression=None, index=False)
 
     elapsed = time.perf_counter() - t0
 
@@ -130,14 +130,14 @@ def bench_pandas_fastparquet(ds):
         buf_bytes += len(ids_list) * 4 * 2
         if buf_bytes >= (1 << 26):
             pdf = pd.DataFrame(buf)
-            pdf.to_parquet(p / f"shard.{shard_idx:05}.parquet", engine="fastparquet", index=False)
+            pdf.to_parquet(p / f"shard.{shard_idx:05}.parquet", engine="fastparquet", compression=None, index=False)
             shard_idx += 1
             buf.clear()
             buf_bytes = 0
 
     if buf:
         pdf = pd.DataFrame(buf)
-        pdf.to_parquet(p / f"shard.{shard_idx:05}.parquet", engine="fastparquet", index=False)
+        pdf.to_parquet(p / f"shard.{shard_idx:05}.parquet", engine="fastparquet", compression=None, index=False)
 
     elapsed = time.perf_counter() - t0
 
@@ -169,7 +169,7 @@ def bench_polars(ds):
         buf_bytes += len(ids_list) * 4 * 2
         if buf_bytes >= (1 << 26):
             pldf = pl.DataFrame({"input_ids": buf_ids, "labels": buf_labels})
-            pldf.write_parquet(p / f"shard.{shard_idx:05}.parquet")
+            pldf.write_parquet(p / f"shard.{shard_idx:05}.parquet", compression="uncompressed")
             shard_idx += 1
             buf_ids.clear()
             buf_labels.clear()
@@ -177,7 +177,7 @@ def bench_polars(ds):
 
     if buf_ids:
         pldf = pl.DataFrame({"input_ids": buf_ids, "labels": buf_labels})
-        pldf.write_parquet(p / f"shard.{shard_idx:05}.parquet")
+        pldf.write_parquet(p / f"shard.{shard_idx:05}.parquet", compression="uncompressed")
 
     elapsed = time.perf_counter() - t0
 

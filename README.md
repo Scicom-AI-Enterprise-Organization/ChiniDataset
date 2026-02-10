@@ -1,8 +1,6 @@
 # ChiniDataset
 
-Parquet-native streaming dataset library for ML training. Drop-in replacement for MosaicML's `LocalDataset`.
-
-Write sharded Parquet datasets with `ParquetWriter`, read them with `StreamingDataset`. Every shard is a standard `.parquet` file -- inspectable by pandas, Spark, DuckDB, anyone.
+Resumable streamable Parquet-native streaming dataset library for large scale training. Why Chini? Idk probably Chini Lake.
 
 ## Install
 
@@ -129,15 +127,14 @@ uv run python benchmarks/bench_write_mp.py
 
 ### 4. Write backend comparison (PyArrow vs Pandas vs Polars)
 
-[Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard (156,289 articles, word tokenizer, `uint32[]` arrays):
+[Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard (156,289 articles, word tokenizer, `uint32[]` arrays). All backends run with **compression disabled** for a fair write-speed comparison:
 
-| Writer | Backend | Time | Samples/s | Size | vs ChiniDataset |
-|---|---|---|---|---|:---:|
-| **ChiniDataset `ParquetWriter`** | PyArrow (direct) | **13.3s** | **11,712/s** | 850.6 MB | **1.00x** |
-| Pandas `to_parquet` | PyArrow | 15.0s | 10,390/s | 369.6 MB | 0.89x |
-| Pandas `to_parquet` | fastparquet | 25.7s | 6,082/s | 500.6 MB | 0.52x |
-| Polars `write_parquet` | Rust | 24.4s | 6,407/s | 385.8 MB | 0.55x |
-
+| Writer | Backend | Time | Samples/s | vs ChiniDataset |
+|---|---|---|---|:---:|
+| **ChiniDataset `ParquetWriter`** | PyArrow (direct) | **13.7s** | **11,446/s** | **1.00x** |
+| Pandas `to_parquet` | PyArrow | 14.8s | 10,578/s | 0.92x |
+| Pandas `to_parquet` | fastparquet | 24.3s | 6,434/s | 0.56x |
+| Polars `write_parquet` | Rust | 23.2s | 6,739/s | 0.59x |
 
 Run: [benchmarks/bench_write_backends.py](/benchmarks/bench_write_backends.py)
 
