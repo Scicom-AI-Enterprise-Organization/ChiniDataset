@@ -58,7 +58,7 @@ ds = StreamingDataset(
 
 ## Parallel Write (`write_mp`)
 
-`write_mp` parallelises the **entire pipeline**: it partitions the dataset across N workers, each worker iterates + transforms + writes its own chunk, then merges the index files automatically.
+`write_mp` parallelises the **entire pipeline**: it partitions the dataset across N workers and merges the index files automatically.
 
 ```python
 from chinidataset import ParquetWriter
@@ -78,9 +78,6 @@ with ParquetWriter(out="./output", columns=columns) as writer:
 with ParquetWriter(out="./output", columns=columns) as writer:
     writer.write_mp(hf_ds, num_workers=4)
 ```
-
-Under the hood: partitions dataset → spawns N processes → each writes to `output/{part_id}/` → `merge_index` combines into one `index.json`.
-
 
 
 ## Examples
