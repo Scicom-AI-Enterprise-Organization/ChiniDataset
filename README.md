@@ -1,6 +1,6 @@
 # ChiniDataset
 
-Resumable streamable Parquet-native streaming dataset library for large scale training.
+Parquet-native streaming dataset library for ML training. Drop-in replacement for MosaicML's `LocalDataset`.
 
 Write sharded Parquet datasets with `ParquetWriter`, read them with `StreamingDataset`. Every shard is a standard `.parquet` file -- inspectable by pandas, Spark, DuckDB, anyone.
 
@@ -125,6 +125,25 @@ Run: [benchmarks/bench_write_mp.py](/benchmarks/bench_write_mp.py)
 
 ```bash
 uv run python benchmarks/bench_write_mp.py
+```
+
+### 4. Write backend comparison (PyArrow vs Pandas vs Polars)
+
+[Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard (156,289 articles, word tokenizer, `uint32[]` arrays):
+
+| Writer | Backend | Time | Samples/s | Size | vs ChiniDataset |
+|---|---|---|---|---|:---:|
+| **ChiniDataset `ParquetWriter`** | PyArrow (direct) | **13.3s** | **11,712/s** | 850.6 MB | **1.00x** |
+| Pandas `to_parquet` | PyArrow | 15.0s | 10,390/s | 369.6 MB | 0.89x |
+| Pandas `to_parquet` | fastparquet | 25.7s | 6,082/s | 500.6 MB | 0.52x |
+| Polars `write_parquet` | Rust | 24.4s | 6,407/s | 385.8 MB | 0.55x |
+
+ChiniDataset's `ParquetWriter` builds Arrow tables directly from numpy arrays with zero-copy paths, skipping any intermediate DataFrame conversion. Pandas adds a dicts-to-DataFrame-to-Arrow conversion layer. Polars and fastparquet require `.tolist()` conversion for numpy array columns, which dominates their runtime. File sizes differ because pandas/polars apply default compression (snappy), while ChiniDataset uses no compression by default.
+
+Run: [benchmarks/bench_write_backends.py](/benchmarks/bench_write_backends.py)
+
+```bash
+uv run python benchmarks/bench_write_backends.py
 ```
 
 ## Package
