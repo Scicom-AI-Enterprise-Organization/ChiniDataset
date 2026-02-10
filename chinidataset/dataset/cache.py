@@ -150,13 +150,7 @@ class CacheManager:
 
     def _download_hf(self, remote_url: str, local_path: Path) -> None:
         """Download from HuggingFace Hub. URL format: hf://user/repo/path/to/file"""
-        try:
-            from huggingface_hub import hf_hub_download
-        except ImportError:
-            raise ImportError(
-                'huggingface-hub is required for hf:// URLs. '
-                'Install with: pip install chinidataset[hf]'
-            )
+        from huggingface_hub import hf_hub_download
 
         path = remote_url[len('hf://'):]
         parts = path.split('/', 2)

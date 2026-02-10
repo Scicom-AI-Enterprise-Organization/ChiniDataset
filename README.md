@@ -1,6 +1,6 @@
 # ChiniDataset
 
-Resumable streamable Parquet-native streaming dataset library for large scale training.
+Parquet-native streaming dataset library for ML training. Drop-in replacement for MosaicML's `LocalDataset`.
 
 Write sharded Parquet datasets with `ParquetWriter`, read them with `StreamingDataset`. Every shard is a standard `.parquet` file -- inspectable by pandas, Spark, DuckDB, anyone.
 
@@ -8,7 +8,6 @@ Write sharded Parquet datasets with `ParquetWriter`, read them with `StreamingDa
 
 ```bash
 uv pip install git+https://github.com/Scicom-AI-Enterprise-Organization/ChiniDataset.git
-uv pip install "chinidataset[hf] @ git+https://github.com/Scicom-AI-Enterprise-Organization/ChiniDataset.git"  # + HuggingFace Hub streaming
 ```
 
 ## Write
