@@ -69,11 +69,24 @@ with ParquetWriter(out="./output", columns=columns) as writer:
 
 Under the hood: partitions dataset → spawns N processes → each writes to `output/{part_id}/` → `merge_index` combines into one `index.json`.
 
+## LRU Cache + Look-Ahead
+
+```python
+from chinidataset import StreamingDataset
+
+ds = StreamingDataset(
+    local="./data",
+    max_open_shards=8,   # keep at most 8 shard readers in memory (LRU eviction)
+    look_ahead=2,        # pre-load next 2 shards in background threads
+)
+```
+
 ## Examples
 
 - [1_example_chinidataset.ipynb](/examples/1_example_chinidataset.ipynb) — Write + Read + DataLoader
 - [2_example_uint32_numpy_array_write.ipynb](/examples/2_example_uint32_numpy_array_write.ipynb) — Tokenized uint32 arrays
 - [3_example_write_mp.ipynb](/examples/3_example_write_mp.ipynb) — Parallel write with `write_mp`
+- [4_simulation_lrucache_look_ahead.ipynb](/examples/4_simulation_lrucache_look_ahead.ipynb) — LRU cache + look-ahead benchmark
 
 ## Benchmarks
 

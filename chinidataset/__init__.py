@@ -20,4 +20,4 @@ from chinidataset.util import merge_index
 from chinidataset.writer import ParquetWriter
 
 __all__ = ['ParquetWriter', 'StreamingDataset', 'merge_index']
-__version__ = '0.1.0'
+__version__ = '0.2.0'

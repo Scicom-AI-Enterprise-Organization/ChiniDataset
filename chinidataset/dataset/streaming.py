@@ -5,6 +5,7 @@ Adapted from: https://github.com/mosaicml/streaming/blob/main/streaming/base/dat
 
 import json
 import logging
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Event
@@ -62,6 +63,11 @@ class StreamingDataset(IterableDataset):
             jumps between shards -- without a cap, all shards get loaded and
             eat all RAM. Oldest readers are evicted when this limit is hit.
             Defaults to ``8``.
+        look_ahead (int): Number of upcoming shards to load in the background
+            while the current shard is being iterated. When reading partition 0,
+            partitions 1 .. ``look_ahead`` are loaded asynchronously so they are
+            ready by the time the iterator reaches them. Set to ``0`` to disable.
+            Must be less than ``max_open_shards``. Defaults to ``2``.
 
     Example:
         >>> from chinidataset import StreamingDataset
@@ -86,6 +92,7 @@ class StreamingDataset(IterableDataset):
         cache_limit: Optional[Union[int, str]] = None,
         predownload: Optional[int] = None,
         max_open_shards: int = 8,
+        look_ahead: int = 2,
     ) -> None:
         local_path = Path(local).expanduser().resolve()
         if split:
@@ -174,8 +181,25 @@ class StreamingDataset(IterableDataset):
         # are evicted (unloaded) when new shards are accessed.
         # Pattern from: https://github.com/malaysia-ai/malaysian-dataset/blob/master/speech-to-text-semisupervised/pseudolabel-whisper/run.py#L60
         self.max_open_shards = max_open_shards
-        self._readers: dict[int, ParquetReader] = {}
-        self._reader_access_order: list[int] = []  # most recent at end
+        # OrderedDict gives O(1) move_to_end / popitem for LRU eviction,
+        # replacing the previous dict + list approach that had O(n) remove.
+        self._readers: OrderedDict[int, ParquetReader] = OrderedDict()
+
+        # Look-ahead caching: load upcoming shards in background threads so
+        # the main iterator never blocks on pd.read_parquet for the next shard.
+        self.look_ahead = look_ahead
+        self._prefetch_executor: Optional[ThreadPoolExecutor] = None
+        if self.look_ahead > 0:
+            if self.look_ahead >= self.max_open_shards:
+                logger.warning(
+                    f'look_ahead ({self.look_ahead}) >= max_open_shards '
+                    f'({self.max_open_shards}). Increasing max_open_shards to '
+                    f'{self.look_ahead + 2} to avoid evicting prefetched shards.'
+                )
+                self.max_open_shards = self.look_ahead + 2
+            self._prefetch_executor = ThreadPoolExecutor(
+                max_workers=min(self.look_ahead, 4),
+            )
 
         # Epoch tracking
         self._epoch = 0
@@ -235,25 +259,91 @@ class StreamingDataset(IterableDataset):
             ParquetReader: Reader for the shard.
         """
         if shard_id in self._readers:
-            # Move to end of access order (most recent)
-            if shard_id in self._reader_access_order:
-                self._reader_access_order.remove(shard_id)
-            self._reader_access_order.append(shard_id)
+            # Move to end of access order (most recent) — O(1)
+            self._readers.move_to_end(shard_id)
             return self._readers[shard_id]
 
-        # Evict oldest reader if at capacity
-        while len(self._readers) >= self.max_open_shards and self._reader_access_order:
-            oldest_id = self._reader_access_order.pop(0)
-            if oldest_id in self._readers:
-                self._readers[oldest_id].unload()
-                del self._readers[oldest_id]
+        # Evict oldest reader if at capacity — O(1) per eviction
+        while len(self._readers) >= self.max_open_shards:
+            _oldest_id, oldest_reader = self._readers.popitem(last=False)
+            oldest_reader.unload()
 
-        # Load new reader
+        # Load new reader (inserted at the end = most recent)
         shard_path = self._cache.ensure_local(shard_id)
         reader = ParquetReader(shard_path)
         self._readers[shard_id] = reader
-        self._reader_access_order.append(shard_id)
         return reader
+
+    @staticmethod
+    def _build_shard_schedule(
+        worker_sample_ids: np.ndarray,
+        sample_offsets: np.ndarray,
+    ) -> list[int]:
+        """Pre-compute the ordered list of distinct shards a worker will visit.
+
+        Called once before the iteration loop so that look-ahead prefetching
+        can index into the schedule in O(1) instead of scanning samples.
+
+        Args:
+            worker_sample_ids: The ordered array of sample IDs for this worker.
+            sample_offsets: Cumulative sample offsets (length = num_shards + 1).
+
+        Returns:
+            List of shard IDs in visitation order (consecutive duplicates
+            collapsed).
+        """
+        if len(worker_sample_ids) == 0:
+            return []
+
+        shard_ids = np.searchsorted(
+            sample_offsets[1:], worker_sample_ids.astype(np.int64), side='right',
+        )
+        # Collapse consecutive duplicates
+        change_mask = np.empty(len(shard_ids), dtype=np.bool_)
+        change_mask[0] = True
+        change_mask[1:] = shard_ids[1:] != shard_ids[:-1]
+        return shard_ids[change_mask].tolist()
+
+    def _prefetch_shards_ahead(
+        self, shard_schedule: list[int], schedule_idx: int
+    ) -> None:
+        """Load the next ``look_ahead`` shards from the pre-computed schedule.
+
+        Because the schedule is already deduplicated, this is O(look_ahead)
+        regardless of how many samples each shard contains.
+
+        Args:
+            shard_schedule: Ordered list of distinct shard IDs (from
+                :meth:`_build_shard_schedule`).
+            schedule_idx: Current position in the schedule (the shard being
+                iterated right now).  Shards at positions
+                ``schedule_idx + 1 .. schedule_idx + look_ahead`` will be
+                loaded in the background.
+        """
+        if self._prefetch_executor is None:
+            return
+
+        start = schedule_idx + 1
+        end = min(start + self.look_ahead, len(shard_schedule))
+
+        for k in range(start, end):
+            shard_id = shard_schedule[k]
+
+            # Already loaded -- nothing to do
+            if shard_id in self._readers and self._readers[shard_id].is_loaded:
+                continue
+
+            # Only prefetch shards that are already on disk (don't block on download)
+            if not self._cache.is_local(shard_id):
+                continue
+
+            reader = self._get_reader(shard_id)
+            reader.load_async(self._prefetch_executor)
+
+    def __del__(self) -> None:
+        """Shut down the background prefetch pool on garbage collection."""
+        if hasattr(self, '_prefetch_executor') and self._prefetch_executor is not None:
+            self._prefetch_executor.shutdown(wait=False)
 
     def __getitem__(self, sample_id: int) -> dict[str, Any]:
         """Get a sample by global index.
@@ -334,17 +424,46 @@ class StreamingDataset(IterableDataset):
         )
 
         if all_local:
-            # Fast path: no prefetch thread, no is_local() checks, just yield
-            for sample_id in worker_sample_ids:
+            # Fast path: no download needed.
+            # Look-ahead only helps sequential access where shards are visited
+            # in order.  With shuffle the access pattern jumps between shards
+            # randomly and the LRU cache already keeps them hot -- scanning
+            # ahead just adds overhead on every shard transition.
+            use_look_ahead = self._prefetch_executor is not None and not self.shuffle
+
+            # Pre-compute shard schedule for O(1) look-ahead indexing
+            shard_schedule: list[int] = []
+            schedule_idx = -1
+            if use_look_ahead:
+                shard_schedule = self._build_shard_schedule(
+                    worker_sample_ids, self._sample_offsets,
+                )
+                schedule_idx = 0
+                self._prefetch_shards_ahead(shard_schedule, -1)
+
+            last_shard_id = -1
+            for i, sample_id in enumerate(worker_sample_ids):
                 shard_id, local_id = self._sample_to_shard(sample_id)
                 reader = self._get_reader(shard_id)
+                reader.wait_loaded()
+
+                if use_look_ahead and shard_id != last_shard_id:
+                    self._prefetch_shards_ahead(shard_schedule, schedule_idx)
+                    schedule_idx += 1
+                    last_shard_id = shard_id
+
                 yield reader[local_id]
         else:
             # Streaming path: prefetch shards in background, wait for downloads
             yield from self._iter_streaming(worker_sample_ids)
 
     def _iter_streaming(self, worker_sample_ids: np.ndarray) -> Iterator[dict[str, Any]]:
-        """Iterate with background prefetching (for remote/cached datasets)."""
+        """Iterate with background prefetching (for remote/cached datasets).
+
+        The download-prefetch thread fetches shard files from the remote.
+        After a shard is confirmed local, look-ahead caching loads the
+        Parquet data in the background so the main thread doesn't block.
+        """
         event = Event()
         prefetch_index = [0]
         yield_index = [0]
@@ -375,7 +494,19 @@ class StreamingDataset(IterableDataset):
         executor = ThreadPoolExecutor(max_workers=1)
         future = executor.submit(prefetch_thread)
 
+        use_look_ahead = self._prefetch_executor is not None and not self.shuffle
+
+        # Pre-compute shard schedule for O(1) look-ahead indexing
+        shard_schedule: list[int] = []
+        schedule_idx = -1
+        if use_look_ahead:
+            shard_schedule = self._build_shard_schedule(
+                worker_sample_ids, self._sample_offsets,
+            )
+            schedule_idx = 0
+
         try:
+            last_shard_id = -1
             for i, sample_id in enumerate(worker_sample_ids):
                 if event.is_set():
                     raise RuntimeError('Prefetch thread failed. Check logs.')
@@ -390,6 +521,13 @@ class StreamingDataset(IterableDataset):
 
                 self._cache.touch(shard_id)
                 reader = self._get_reader(shard_id)
+                reader.wait_loaded()
+
+                if use_look_ahead and shard_id != last_shard_id:
+                    self._prefetch_shards_ahead(shard_schedule, schedule_idx)
+                    schedule_idx += 1
+                    last_shard_id = shard_id
+
                 yield reader[local_id]
         finally:
             event.set()

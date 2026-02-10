@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chinidataset"
-version = "0.1.0"
+version = "0.2.0"
 description = "Parquet streaming dataset library for ML training"
 requires-python = ">=3.9"
 authors = [{ name = "ChiniDataset Contributors" }]
@@ -19,7 +19,7 @@ dependencies = [
     "numpy>=1.21.0",
     "pyarrow>=14.0.0",
     "torch>=2.0.0",
-    "huggingface-hub>=0.20.0",
+    "huggingface-hub>=0.24.0,<1.0",
 ]
 
 [project.optional-dependencies]
