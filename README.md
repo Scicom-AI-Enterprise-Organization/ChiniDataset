@@ -138,7 +138,6 @@ uv run python benchmarks/bench_write_mp.py
 | Pandas `to_parquet` | fastparquet | 25.7s | 6,082/s | 500.6 MB | 0.52x |
 | Polars `write_parquet` | Rust | 24.4s | 6,407/s | 385.8 MB | 0.55x |
 
-ChiniDataset's `ParquetWriter` builds Arrow tables directly from numpy arrays with zero-copy paths, skipping any intermediate DataFrame conversion. Pandas adds a dicts-to-DataFrame-to-Arrow conversion layer. Polars and fastparquet require `.tolist()` conversion for numpy array columns, which dominates their runtime. File sizes differ because pandas/polars apply default compression (snappy), while ChiniDataset uses no compression by default.
 
 Run: [benchmarks/bench_write_backends.py](/benchmarks/bench_write_backends.py)
 
