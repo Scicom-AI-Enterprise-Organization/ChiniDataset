@@ -127,8 +127,7 @@ uv run python benchmarks/bench_write_mp.py
 
 ### 4. Write backend comparison (PyArrow vs Pandas vs Polars)
 
-[Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard (156,289 articles, word tokenizer, `uint32[]` arrays). All backends run with **compression disabled** for a fair write-speed comparison:
-
+[Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard (156,289 articles, word tokenizer, `uint32[]` arrays).
 | Writer | Backend | Time | Samples/s | vs ChiniDataset |
 |---|---|---|---|:---:|
 | **ChiniDataset `ParquetWriter`** | PyArrow (direct) | **13.7s** | **11,446/s** | **1.00x** |
