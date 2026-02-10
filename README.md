@@ -85,9 +85,9 @@ Under the hood: partitions dataset → spawns N processes → each writes to `ou
 
 | Metric | MosaicML (MDS) | ChiniDataset (PQ) | Speedup |
 |---|---|---|:---:|
-| Write | 12,188/s | 12,353/s | 1.0x |
-| Read | 7,774/s | 9,309/s | **1.2x** |
-| Read (shuffled) | 8,876/s | 6,962/s | 0.8x |
+| Write | 9,790/s | 11,192/s | **1.1x** |
+| Read | 12,339/s | 122,317/s | **9.9x** |
+| Read (shuffled) | 16,490/s | 222,433/s | **13.5x** |
 
 Run: [benchmarks/run.py](/benchmarks/run.py)
 
@@ -101,8 +101,8 @@ uv run python benchmarks/run.py
 
 | Metric | MosaicML | ChiniDataset | Speedup |
 |---|---|---|:---:|
-| Tokenize + Write | 14.13s (11,061 rows/s) | 15.72s (9,939 rows/s) | 0.9x |
-| Read | 168.23s (929 rows/s) | 29.21s (5,350 rows/s) | **5.8x** |
+| Tokenize + Write | 13.96s (11,198 rows/s) | 16.27s (9,605 rows/s) | 0.9x |
+| Read | 166.95s (936 rows/s) | 1.30s (120,680 rows/s) | **128.9x** |
 
 Run: [benchmarks/bench_uint32.py](/benchmarks/bench_uint32.py)
 
@@ -133,7 +133,7 @@ uv run python benchmarks/bench_write_mp.py
 chinidataset/
 ├── writer/parquet.py        ParquetWriter + write_mp() + write_batch()
 ├── dataset/streaming.py     StreamingDataset (IterableDataset + map-style)
-├── dataset/reader.py        ParquetReader (numpy-backed, LRU cached)
+├── dataset/reader.py        ParquetReader (pandas backend, LRU cached)
 ├── dataset/cache.py         CacheManager (S3/HF download + LRU eviction)
 ├── dataset/shuffle.py       Deterministic block-based shuffling
 ├── dataset/partition.py     Partition across workers
