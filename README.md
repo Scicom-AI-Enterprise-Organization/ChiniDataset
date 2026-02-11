@@ -23,6 +23,20 @@ with ParquetWriter(out="./data", columns=col) as w:
         w.write(row)
 ```
 
+#### Write using built-in multiprocessing (`write_mp`)
+
+```python
+from chinidataset import ParquetWriter
+
+columns = {"input_ids": "uint32[]"}
+
+def tokenize_row(row):
+    return {"input_ids": tokenize(row["text"])}
+
+with ParquetWriter(out="./output", columns=columns) as writer:
+    writer.write_mp(hf_ds, num_workers=4, transform=tokenize_row)
+```
+
 ## Read
 
 ```python
@@ -31,7 +45,7 @@ from chinidataset import StreamingDataset
 ds = StreamingDataset(local="./data", remote="hf://user/dataset")
 ```
 
-Also supports hf streaming from [hf datasets](https://huggingface.co/datasets/nazhan/wikipedia-shard-0-chini):
+#### Also supports hf streaming from [hf datasets](https://huggingface.co/datasets/nazhan/wikipedia-shard-0-chini):
 
 ```python
 from datasets import load_dataset
@@ -69,7 +83,7 @@ ds = StreamingDataset(
 )
 ```
 
-### Using look_ahead param to optimize reading speed
+#### Using look_ahead param to optimize reading speed
 
 ```python
 from chinidataset import StreamingDataset
@@ -79,29 +93,6 @@ ds = StreamingDataset(
     max_open_shards=8,   # keep at most 8 shard readers in memory (LRU eviction)
     look_ahead=2,        # pre-load next 2 shards in background threads
 )
-```
-
-## Parallel Write (`write_mp`)
-
-`write_mp` parallelises the **entire pipeline**: it partitions the dataset across N workers and merges the index files automatically.
-
-```python
-from chinidataset import ParquetWriter
-
-columns = {"input_ids": "uint32[]"}
-
-def tokenize_row(row):
-    return {"input_ids": tokenize(row["text"])}
-
-with ParquetWriter(out="./output", columns=columns) as writer:
-    writer.write_mp(hf_ds, num_workers=4, transform=tokenize_row)
-```
-
-`transform` is optional — skip it if your data is already in the right shape:
-
-```python
-with ParquetWriter(out="./output", columns=columns) as writer:
-    writer.write_mp(hf_ds, num_workers=4)
 ```
 
 
@@ -114,7 +105,7 @@ with ParquetWriter(out="./output", columns=columns) as writer:
 
 ## Benchmarks
 
-### 1. General benchmark (write, read, read shuffled)
+#### 1. General benchmark (write, read, read shuffled)
 
 [Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia) shard 0 (156,289 articles, word tokenizer, `input_ids` uint32[]):
 
@@ -130,7 +121,7 @@ Run: [benchmarks/run.py](/benchmarks/run.py)
 uv run python benchmarks/run.py
 ```
 
-### 2. Uint32 numpy array tokens write & read benchmark
+#### 2. Uint32 numpy array tokens write & read benchmark
 
 [Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard (156,289 articles, word tokenizer O(1) dict lookup, `uint32[]` arrays):
 
@@ -145,7 +136,7 @@ Run: [benchmarks/bench_uint32.py](/benchmarks/bench_uint32.py)
 uv run python benchmarks/bench_uint32.py
 ```
 
-### 3. `write_mp` parallel write benchmark
+#### 3. `write_mp` parallel write benchmark
 
 [Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard (156,289 articles, word-level tokenizer, `uint32[]` arrays):
 
@@ -162,7 +153,7 @@ Run: [benchmarks/bench_write_mp.py](/benchmarks/bench_write_mp.py)
 uv run python benchmarks/bench_write_mp.py
 ```
 
-### 4. Write backend comparison (PyArrow vs Pandas vs Polars)
+#### 4. Write backend comparison (PyArrow vs Pandas vs Polars)
 
 [Wikipedia EN](https://huggingface.co/datasets/wikimedia/wikipedia/blob/main/20231101.en/train-00000-of-00041.parquet) shard (156,289 articles, word tokenizer, `uint32[]` arrays).
 | Writer | Backend | Time | Samples/s | vs ChiniDataset |
