@@ -125,9 +125,14 @@ class CacheManager:
     def _download_file(self, remote_url: str, local_path: Path) -> None:
         """Download a single file from remote to local.
 
-        Supports: hf://, http://, https://, local paths.
+        Supports: s3://, hf://, http://, https://, local paths.
         """
         local_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Amazon S3
+        if remote_url.startswith('s3://'):
+            self._download_s3(remote_url, local_path)
+            return
 
         # HuggingFace Hub
         if remote_url.startswith('hf://'):
@@ -162,6 +167,44 @@ class CacheManager:
 
         downloaded = hf_hub_download(repo_id=repo_id, filename=filename, repo_type='dataset')
         shutil.copy2(downloaded, local_path)
+
+    def _download_s3(self, remote_url: str, local_path: Path) -> None:
+        """Download from Amazon S3. URL format: s3://bucket/key/to/file
+
+        Uses boto3 (AWS SDK for Python). Credentials are resolved via the
+        standard boto3 credential chain:
+          1. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+          2. Shared credential file (~/.aws/credentials)
+          3. AWS config file (~/.aws/config)
+          4. IAM role (for EC2/ECS/Lambda)
+
+        An optional ``AWS_ENDPOINT_URL`` environment variable is honoured for
+        S3-compatible services (MinIO, Ceph, etc.).
+        """
+        try:
+            import boto3
+        except ImportError:
+            raise ImportError(
+                'boto3 is required for S3 downloads. '
+                'Install it with: pip install chinidataset[s3]'
+            )
+
+        import os
+
+        path = remote_url[len('s3://'):]
+        slash = path.find('/')
+        if slash < 0:
+            raise ValueError(f'Invalid S3 URL (no key): {remote_url}')
+
+        bucket = path[:slash]
+        key = path[slash + 1:]
+
+        # Support custom endpoint for S3-compatible services (MinIO, Ceph, etc.)
+        endpoint_url = os.environ.get('AWS_ENDPOINT_URL')
+        s3 = boto3.client('s3', endpoint_url=endpoint_url)
+
+        logger.debug(f'Downloading s3://{bucket}/{key} -> {local_path}')
+        s3.download_file(Bucket=bucket, Key=key, Filename=str(local_path))
 
     def _download_shard(self, shard: ShardInfo) -> None:
         """Download a shard from remote to local."""
