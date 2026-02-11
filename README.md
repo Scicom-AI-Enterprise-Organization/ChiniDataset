@@ -31,7 +31,7 @@ from chinidataset import StreamingDataset
 ds = StreamingDataset(local="./data", remote="hf://user/dataset")
 ```
 
-Also supports HuggingFace Hub streaming from [hf datasets](https://huggingface.co/datasets/nazhan/wikipedia-shard-0-chini):
+Also supports hf streaming from [hf datasets](https://huggingface.co/datasets/nazhan/wikipedia-shard-0-chini):
 
 ```python
 from datasets import load_dataset
