@@ -27,21 +27,46 @@ with ParquetWriter(out="./data", columns=col) as w:
 
 ```python
 from chinidataset import StreamingDataset
-from torch.utils.data import DataLoader
 
-ds = StreamingDataset(local="./data")
-loader = DataLoader(ds, batch_size=32)
-
-for batch in loader:
-    texts = batch["text"]
-    labels = batch["label"]
+ds = StreamingDataset(local="./data", remote="hf://user/dataset")
 ```
 
-Also supports HuggingFace Hub streaming and map-style access:
+Also supports HuggingFace Hub streaming from [hf datasets](https://huggingface.co/datasets/nazhan/wikipedia-shard-0-chini):
 
 ```python
-ds = StreamingDataset(local="/tmp/cache", remote="hf://user/dataset")
-sample = ds[42]
+from datasets import load_dataset
+from chinidataset import ParquetWriter, StreamingDataset
+from huggingface_hub import HfApi
+
+# load the dataset
+ds = load_dataset(
+    "parquet",
+    data_files="hf://datasets/wikimedia/wikipedia/20231101.en/train-00000-of-00041.parquet",
+    split="train",
+)
+
+def transform(row):
+    return {"title": row["title"], "text": row["text"]}
+
+# write partitions using mp for speed, it supports index merging too
+columns = {"title": "str", "text": "str"}
+
+with ParquetWriter(out="./wikipedia-shard-0", columns=columns) as w:
+    w.write_mp(ds, num_workers=4, transform=transform)
+
+# upload partitions to hf 
+api = HfApi(token="TOKEN")
+api.upload_folder(
+    folder_path="./wikipedia-shard-0",
+    repo_id="nazhan/wikipedia-shard-0-chini",
+    repo_type="dataset",
+)
+
+# stream the data remotely from hf
+ds = StreamingDataset(
+    local="/tmp/wiki_cache",
+    remote="hf://nazhan/wikipedia-shard-0-chini",
+)
 ```
 
 ### Using look_ahead param to optimize reading speed
