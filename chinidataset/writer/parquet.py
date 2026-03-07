@@ -36,11 +36,15 @@ def _write_partition_worker(args: tuple) -> None:
     called to flush remaining samples and write the partition's ``index.json``.
 
     Args:
-        args: Tuple of (sub_dir, dataset, start, end, columns, writer_kwargs, transform).
+        args: Tuple of (sub_dir, dataset, start, end, columns, writer_kwargs, transform, use_tqdm, part_id).
     """
-    sub_dir, dataset, start, end, columns, writer_kwargs, transform = args
+    sub_dir, dataset, start, end, columns, writer_kwargs, transform, use_tqdm, part_id = args
+    indices = range(start, end)
+    if use_tqdm:
+        from tqdm import tqdm
+        indices = tqdm(indices, desc=f'Worker {part_id}', position=part_id, leave=True)
     with ParquetWriter(out=sub_dir, columns=columns, **writer_kwargs) as w:
-        for i in range(start, end):
+        for i in indices:
             sample = dataset[i]
             if transform is not None:
                 sample = transform(sample)
@@ -551,6 +555,7 @@ class ParquetWriter(Writer):
         *,
         num_workers: int = 4,
         transform: Optional[Callable[[dict[str, Any]], dict[str, Any]]] = None,
+        use_tqdm: bool = True,
     ) -> None:
         """Write an entire dataset in parallel using multiprocessing.
 
@@ -583,6 +588,8 @@ class ParquetWriter(Writer):
                 Must be a picklable function (top-level or named function,
                 **not** a lambda), because it is sent to worker processes
                 via ``multiprocessing``.
+            use_tqdm (bool): If ``True``, each worker displays its own tqdm
+                progress bar prefixed with ``Worker N``. Defaults to ``True``.
 
         Raises:
             TypeError: If ``dataset`` does not support ``len()`` and ``__getitem__``.
@@ -633,7 +640,7 @@ class ParquetWriter(Writer):
                 break  # fewer samples than workers
             sub_dir = str(self.local / f'{part_id:05d}')
             partition_args.append(
-                (sub_dir, dataset, start, end, self.columns, writer_kwargs, transform)
+                (sub_dir, dataset, start, end, self.columns, writer_kwargs, transform, use_tqdm, part_id)
             )
 
         actual_workers = len(partition_args)
