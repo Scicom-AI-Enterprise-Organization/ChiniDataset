@@ -27,6 +27,9 @@ DEFAULT_ROW_GROUP_SIZE = 10000
 DEFAULT_DATA_PAGE_SIZE = 1024 * 1024  # 1MB
 
 
+_WORKER_DATASET = None
+
+
 def _write_partition_worker(args: tuple) -> None:
     """Worker function for parallel ``write_dataset``. Runs in a subprocess.
 
@@ -35,14 +38,19 @@ def _write_partition_worker(args: tuple) -> None:
     and writes samples. The writer's context manager ensures ``finish()`` is
     called to flush remaining samples and write the partition's ``index.json``.
 
+    The dataset is accessed via the module-level ``_WORKER_DATASET`` global,
+    which is inherited from the parent process via fork (copy-on-write) so the
+    full dataset is never pickled or sent over IPC.
+
     Args:
-        args: Tuple of (sub_dir, dataset, start, end, columns, writer_kwargs, transform, use_tqdm, part_id).
+        args: Tuple of (sub_dir, start, end, columns, writer_kwargs, transform, use_tqdm, part_id).
     """
-    sub_dir, dataset, start, end, columns, writer_kwargs, transform, use_tqdm, part_id = args
+    sub_dir, start, end, columns, writer_kwargs, transform, use_tqdm, part_id = args
+    dataset = _WORKER_DATASET
     indices = range(start, end)
     if use_tqdm:
         from tqdm import tqdm
-        indices = tqdm(indices, desc=f'Worker {part_id}', position=part_id, leave=True)
+        indices = tqdm(indices, desc=f'Worker {part_id}', leave=True)
     with ParquetWriter(out=sub_dir, columns=columns, **writer_kwargs) as w:
         for i in indices:
             sample = dataset[i]
@@ -629,6 +637,11 @@ class ParquetWriter(Writer):
             return
 
         # --- Parallel path ---
+        # Set the dataset as a module-level global so fork-based workers inherit
+        # it via copy-on-write without pickling the full dataset for each worker.
+        import chinidataset.writer.parquet as _self_module
+        _self_module._WORKER_DATASET = dataset
+
         chunk_size = (N + num_workers - 1) // num_workers
         writer_kwargs = self._get_writer_kwargs()
 
@@ -640,7 +653,7 @@ class ParquetWriter(Writer):
                 break  # fewer samples than workers
             sub_dir = str(self.local / f'{part_id:05d}')
             partition_args.append(
-                (sub_dir, dataset, start, end, self.columns, writer_kwargs, transform, use_tqdm, part_id)
+                (sub_dir, start, end, self.columns, writer_kwargs, transform, use_tqdm, part_id)
             )
 
         actual_workers = len(partition_args)
@@ -650,6 +663,8 @@ class ParquetWriter(Writer):
 
         with Pool(processes=actual_workers) as pool:
             pool.map(_write_partition_worker, partition_args)
+
+        _self_module._WORKER_DATASET = None  # release reference
 
         # Merge per-partition index.json files into a single root index.json
         merge_index(str(self.local))
