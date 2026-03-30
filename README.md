@@ -2,6 +2,15 @@
 
 Resumable streamable Parquet-native streaming dataset library for large scale training. Why Chini? Idk probably Chini Lake.
 
+Outperforms [MosaicML Streaming](https://github.com/mosaicml/streaming) across all major workloads:
+
+- **9.9x faster sequential reads** and **13.5x faster shuffled reads** on general text datasets
+- **128x faster reads** on tokenized `uint32[]` array workloads (1.30s vs 166.95s for 156k samples)
+- **1.1x faster sequential writes** and **2.57x faster parallel writes** with `write_mp`
+- Built on Parquet + PyArrow — no custom binary format, universally readable
+
+See [Benchmarks](#benchmarks) for full numbers.
+
 ## Install
 
 ```bash
