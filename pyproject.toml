@@ -19,7 +19,8 @@ dependencies = [
     "numpy>=1.21.0",
     "pyarrow>=14.0.0",
     "torch>=2.0.0",
-    "huggingface-hub>=0.24.0,<1.0",
+    "pandas>=2.3.3",
+    "huggingface-hub>=1.8.0",
 ]
 
 [project.optional-dependencies]
@@ -39,3 +40,11 @@ packages = ["chinidataset"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (multiprocess, write_mp, large datasets)",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
